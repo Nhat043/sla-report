@@ -7,3 +7,10 @@ test("initial sync loads metadata, feed items, and warm cache", async () => {
   const store = new Store(); await new SyncManager({ client, store, log: () => {} }).initialSync();
   assert.equal(store.ready, true); assert.equal(store.requests.size, 1); assert.equal(store.events.get(41210).size, 1); assert.equal(store.cache.has(41210), true);
 });
+
+test("poll applies each feed item once and advances the cursor", async () => {
+  const store = new Store(); store.ready = true;
+  const manager = new SyncManager({ store, log: () => {}, client: { changes: async () => ({ data: [{ seq: 1, type: "staff.updated", staff: { id: 304, name: "Updated" } }, { seq: 1, type: "staff.updated", staff: { id: 304, name: "Duplicate" } }], next_cursor: "next", has_more: false }) } });
+  await manager.poll();
+  assert.equal(store.staff.get(304).name, "Updated"); assert.equal(manager.cursor, "next");
+});

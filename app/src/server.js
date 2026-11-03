@@ -9,5 +9,5 @@ const store = new Store();
 const sync = new SyncManager({ client: new HelpdeskClient(), store, log: message => console.log(message) });
 createApp({ store }).listen(port, "0.0.0.0", () => {
   console.log(`listening on http://0.0.0.0:${port}`);
-  sync.initialSync().catch(error => console.error("initial sync failed", error.message));
+  sync.start().catch(error => console.error("initial sync failed", error.message));
 });
