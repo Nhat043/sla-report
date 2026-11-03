@@ -29,7 +29,7 @@ export function createApp({ store = new Store(), ready = false } = {}) {
   app.get("/api/requests", (req, res) => {
     const range = dateRange(req.query); const limit = req.query.limit === undefined ? 50 : Number(req.query.limit); const sort = req.query.sort || "id";
     const late = bool(req.query.late); const withinTarget = bool(req.query.within_target);
-    if (!range || !Number.isInteger(limit) || limit < 1 || limit > 200 || !["id", "-id", "response_business_minutes", "-response_business_minutes"].includes(sort) || (req.query.late !== undefined && late === null) || (req.query.within_target !== undefined && withinTarget === null) || (req.query.site_id && !/^\d+$/.test(req.query.site_id)) || (req.query.responder_id && !/^\d+$/.test(req.query.responder_id))) return res.status(400).json({ error: "invalid query" });
+    if ((!req.query.cursor && !range) || !Number.isInteger(limit) || limit < 1 || limit > 200 || !["id", "-id", "response_business_minutes", "-response_business_minutes"].includes(sort) || (req.query.late !== undefined && late === null) || (req.query.within_target !== undefined && withinTarget === null) || (req.query.site_id && !/^\d+$/.test(req.query.site_id)) || (req.query.responder_id && !/^\d+$/.test(req.query.responder_id))) return res.status(400).json({ error: "invalid query" });
     let rows; let offset = 0;
     if (req.query.cursor) {
       const snapshot = store.snapshots.get(req.query.cursor);
