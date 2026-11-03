@@ -14,4 +14,5 @@ export class Store {
     return { id: request.id, site_id: request.site_id, responder_id: sla.responder_id, responder: staff?.name ?? null, response_business_minutes: sla.response_business_minutes, within_target: sla.within_target, completed_late: sla.completed_late };
   }
   report(from, to) { return [...this.requests.values()].filter(request => { const site = this.sites.get(request.site_id); const date = site && localDate(Date.parse(request.created_at), site.timezone); return site && date >= from && date <= to && request.status !== "canceled" && !request.deleted_at && !request.merged_into_id; }).map(request => this.row(request)).filter(Boolean); }
+  warm() { for (const request of this.requests.values()) this.row(request); }
 }
