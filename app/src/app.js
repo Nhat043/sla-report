@@ -7,6 +7,11 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 function dateRange(query) { const { from, to } = query; return DATE.test(from || "") && DATE.test(to || "") && from <= to ? { from, to } : null; }
+function bool(value) { return value === undefined ? undefined : value === "true" ? true : value === "false" ? false : null; }
+function sortRows(rows, sort) {
+  const descending = sort.startsWith("-"); const field = sort.replace("-", "");
+  return rows.sort((a, b) => { const left = a[field], right = b[field]; if (left == null || right == null) return left == null && right == null ? a.id - b.id : left == null ? 1 : -1; if (left === right) return a.id - b.id; return (left < right ? -1 : 1) * (descending ? -1 : 1); });
+}
 
 export function createApp({ store = new Store(), ready = false } = {}) {
   const app = express();
@@ -22,8 +27,21 @@ export function createApp({ store = new Store(), ready = false } = {}) {
   });
 
   app.get("/api/requests", (req, res) => {
-    // TODO (level 4): filters, sorting and cursor pagination, see docs/contract.md.
-    res.status(501).json({ error: "not implemented" });
+    const range = dateRange(req.query); const limit = req.query.limit === undefined ? 50 : Number(req.query.limit); const sort = req.query.sort || "id";
+    const late = bool(req.query.late); const withinTarget = bool(req.query.within_target);
+    if (!range || !Number.isInteger(limit) || limit < 1 || limit > 200 || !["id", "-id", "response_business_minutes", "-response_business_minutes"].includes(sort) || (req.query.late !== undefined && late === null) || (req.query.within_target !== undefined && withinTarget === null) || (req.query.site_id && !/^\d+$/.test(req.query.site_id)) || (req.query.responder_id && !/^\d+$/.test(req.query.responder_id))) return res.status(400).json({ error: "invalid query" });
+    let rows; let offset = 0;
+    if (req.query.cursor) {
+      const snapshot = store.snapshots.get(req.query.cursor);
+      if (!snapshot || snapshot.expires < Date.now()) return res.status(400).json({ error: "invalid cursor" });
+      rows = snapshot.rows; offset = snapshot.offset;
+    } else {
+      rows = store.report(range.from, range.to).filter(row => (!req.query.site_id || row.site_id === Number(req.query.site_id)) && (!req.query.responder_id || row.responder_id === Number(req.query.responder_id)) && (late === undefined || row.completed_late === late) && (withinTarget === undefined || row.within_target === withinTarget));
+      sortRows(rows, sort);
+    }
+    const data = rows.slice(offset, offset + limit); const nextOffset = offset + data.length; let next_cursor = null;
+    if (nextOffset < rows.length) { next_cursor = crypto.randomUUID(); store.snapshots.set(next_cursor, { rows, offset: nextOffset, expires: Date.now() + 10 * 60_000 }); }
+    res.json({ data, next_cursor });
   });
 
   app.get("/api/sla-report", (req, res) => {

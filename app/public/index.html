@@ -1,30 +1,10 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Response-time report</title>
-</head>
-<body>
-  <h1>Response-time report</h1>
-  <form id="f">
-    <label>From <input type="date" name="from" required></label>
-    <label>To <input type="date" name="to" required></label>
-    <button type="submit">Run report</button>
-  </form>
-  <p id="status"></p>
-  <table id="report" border="1">
-    <thead></thead>
-    <tbody></tbody>
-  </table>
-  <script>
-    document.getElementById("f").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const params = new URLSearchParams(new FormData(e.target));
-      const res = await fetch("/api/sla-report?" + params);
-      const data = await res.json();
-      // TODO: render `data` into the table.
-      document.getElementById("status").textContent = res.status + " " + JSON.stringify(data);
-    });
-  </script>
-</body>
-</html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>SLA report</title></head><body>
+<h1>SLA report</h1><form id="filters"><label>From <input type="date" name="from" required></label><label>To <input type="date" name="to" required></label><label>Site <input name="site_id"></label><label>Sort <select name="sort"><option value="id">ID</option><option value="-id">ID descending</option><option value="response_business_minutes">Response minutes</option><option value="-response_business_minutes">Response minutes descending</option></select></label><button>Run report</button></form>
+<p id="status"></p><h2>Responder summary</h2><div id="summary"></div><h2>Requests</h2><table border="1"><thead id="head"></thead><tbody id="rows"></tbody></table><button id="next" hidden>Next page</button>
+<script>
+const form=document.querySelector('#filters'),status=document.querySelector('#status'),summary=document.querySelector('#summary'),head=document.querySelector('#head'),rows=document.querySelector('#rows'),next=document.querySelector('#next');let cursor=null;
+const columns=['id','site_id','responder','response_business_minutes','within_target','completed_late'];
+function render(data,append=false){head.innerHTML='<tr>'+columns.map(c=>`<th>${c}</th>`).join('')+'</tr>';if(!append)rows.innerHTML='';rows.insertAdjacentHTML('beforeend',data.data.map(row=>'<tr>'+columns.map(c=>`<td>${row[c]??''}</td>`).join('')+'</tr>').join(''));cursor=data.next_cursor;next.hidden=!cursor}
+async function browse(append=false){const query=cursor?new URLSearchParams({cursor}):new URLSearchParams(new FormData(form));const res=await fetch('/api/requests?'+query);const data=await res.json();status.textContent=res.ok?`${data.data.length} rows loaded`:data.error;if(res.ok)render(data,append)}
+form.addEventListener('submit',async event=>{event.preventDefault();cursor=null;const query=new URLSearchParams(new FormData(form));const res=await fetch('/api/sla-report?'+query);const data=await res.json();summary.textContent=(data.responders||[]).map(x=>`${x.name}: ${x.requests} requests, ${x.within_target} within target, ${x.completed_late} late`).join(' | ');browse()});next.addEventListener('click',()=>browse(true));
+</script></body></html>

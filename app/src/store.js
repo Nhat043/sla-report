@@ -2,7 +2,7 @@ import { calculate } from "./sla.js";
 import { localDate } from "./tz.js";
 
 export class Store {
-  constructor() { this.requests = new Map(); this.events = new Map(); this.sites = new Map(); this.staff = new Map(); this.holidays = new Map(); this.cache = new Map(); }
+  constructor() { this.requests = new Map(); this.events = new Map(); this.sites = new Map(); this.staff = new Map(); this.holidays = new Map(); this.cache = new Map(); this.snapshots = new Map(); }
   putRequest(request) { this.requests.set(request.id, request); this.cache.delete(request.id); }
   putEvent(requestId, event) { if (!this.events.has(requestId)) this.events.set(requestId, new Map()); this.events.get(requestId).set(event.id, event); this.cache.delete(requestId); }
   putStaff(staff) { this.staff.set(staff.id, staff); }
