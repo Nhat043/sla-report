@@ -7,6 +7,9 @@ Write in English. Short bullet points are fine. Reviewers read this file alongsi
 - The change feed is the authoritative source for historical requests and events because it is documented as containing every change since the start.
 - Report eligibility is calculated using the request's site-local creation date, not its UTC date.
 - Deadlines are site-local wall-clock values. The timezone conversion uses the site's IANA timezone, including Sydney DST transitions.
+- The deadline is the `due_at` on the latest valid event by event timestamp; the request's current `due_on` is not used.
+- A reverting event and the event it references are both excluded before calculating response, completion, and deadline facts.
+- Unknown query parameters are ignored. Invalid required parameters and invalid cursors return `400`.
 - An in-memory cache is acceptable for this time-boxed, single-process service. A restart intentionally performs a fresh initial sync.
 
 ## What I found in the API or data
