@@ -5,7 +5,7 @@ import { Store } from "../src/store.js";
 function storeFixture() {
   const store = new Store();
   store.putSite({ id: 11, timezone: "Asia/Singapore", business_hours: { mon: { open: "08:00", close: "18:00" } } }); store.putStaff({ id: 304, name: "Benjamin Tan" });
-  store.putRequest({ id: 41210, site_id: 11, status: "processing", priority: "High", created_at: "2026-10-05T00:00:00Z" }); store.putEvent(41210, { id: 1, status: "processing", actor_id: 304, at: 1791159600 }); return store;
+  store.putRequest({ id: 41210, site_id: 11, status: "processing", priority: "High", created_at: "2026-10-05T00:00:00Z" }); store.putEvent(41210, { id: 1, status: "processing", actor_id: 304, at: 1791159600 }); store.ready = true; return store;
 }
 test("SLA report returns rows and responder summary", async () => {
   const server = createApp({ store: storeFixture() }).listen(0);

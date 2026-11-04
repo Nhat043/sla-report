@@ -17,12 +17,21 @@ Write in English. Short bullet points are fine. Reviewers read this file alongsi
 - Feed items may be delivered more than once. Request and event maps are keyed by ID, and feed sequence numbers are deduplicated during live polling.
 - Staff names are mutable. Report rows resolve the responder name from the current staff record rather than the historical name attached to an event.
 - A feed cursor can expire. The poller detects a `410`, clears cursor state, and safely replays the feed.
+- Sites differ in more than timezone: Jakarta (site 13) is open Saturday 08:00–12:00, while Singapore and Sydney are closed at weekends. Hours are read per weekday from `/v1/sites`, so nothing is hardcoded to "weekend = closed"; `null` days and holidays are treated as closed.
+- Two different staff members can share the same name (ids 368 and 371 are both "Marcus Lee"). Responders are therefore grouped by `id`, never by name, matching the contract's one-row-per-responder requirement.
+- The helpdesk clock can run ahead of the local machine. SLA results use only event and request timestamps, never "now"; "now" is used solely to choose the initial report window, so a clock skew does not change any computed metric.
 
 ## How I used AI
 
 - I used Codex as an implementation and review assistant: to scaffold small Node modules, propose tests, and check the documented API contract.
 - I reviewed and edited all generated code, used the test suite to catch a syntax issue in a live-sync test, and kept the final design consistent with the provided rules.
 - No generated API data or secrets are included in the repository.
+
+## Level status
+
+- All four levels (report, fast, live, browse) are implemented and pass the local test suite (9 tests).
+- Measured on the practice API via `docker compose up --build`: `/ready` reached 200 in about 54 s (reading the full change feed), the October report returned 1,925 requests in about 0.12 s, and the 1 May–31 Oct report in about 0.33 s — against the 8-minute, 5 s and 10 s limits. While still syncing, `/health` is 200 and `/ready`, `/api/sla-report` and `/api/requests` all return 503.
+- Not independently load-tested against grader-scale data; these timings are from the practice dataset only.
 
 ## Trade-offs and what I would do next
 
