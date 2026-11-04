@@ -119,6 +119,45 @@ test("report excludes canceled, deleted, merged and out-of-range requests", asyn
   });
 });
 
+test("CSV export returns the filtered rows with a header", async () => {
+  await withApp(storeFixture(), async get => {
+    const res = await get(`/api/requests.csv?${RANGE}&responder_id=304&sort=id`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get("content-type"), /text\/csv/);
+    assert.match(res.headers.get("content-disposition"), /attachment; filename=/);
+    const lines = (await res.text()).trim().split("\r\n");
+    assert.equal(lines[0], "id,site_id,responder_id,responder,response_business_minutes,within_target,completed_late");
+    assert.deepEqual(lines.slice(1), [
+      "1,11,304,Benjamin Tan,10,true,false",
+      "2,11,304,Benjamin Tan,50,false,true",
+    ]);
+  });
+});
+
+test("CSV export leaves null fields empty", async () => {
+  await withApp(storeFixture(), async get => {
+    const res = await get(`/api/requests.csv?${RANGE}&site_id=12&sort=id`);
+    const lines = (await res.text()).trim().split("\r\n");
+    // id 3 has no responder: those columns are empty.
+    assert.deepEqual(lines.slice(1), [
+      "3,12,,,,,",
+      "4,12,305,Chloe Lim,30,true,true",
+    ]);
+  });
+});
+
+test("CSV export rejects a bad range and honours readiness", async () => {
+  await withApp(storeFixture(), async get => {
+    assert.equal((await get("/api/requests.csv?from=2026-10-06&to=2026-10-05")).status, 400);
+    assert.equal((await get(`/api/requests.csv?${RANGE}&sort=bogus`)).status, 400);
+  });
+  const store = storeFixture();
+  store.ready = false;
+  await withApp(store, async get => {
+    assert.equal((await get(`/api/requests.csv?${RANGE}`)).status, 503);
+  });
+});
+
 test("endpoints return 503 before the store is ready", async () => {
   const store = storeFixture();
   store.ready = false;

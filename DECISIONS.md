@@ -29,9 +29,17 @@ Write in English. Short bullet points are fine. Reviewers read this file alongsi
 
 ## Level status
 
-- All four levels (report, fast, live, browse) are implemented and pass the local test suite (9 tests).
+- All four levels (report, fast, live, browse) are implemented and pass the local test suite (19 tests).
 - Measured on the practice API via `docker compose up --build`: `/ready` reached 200 in about 54 s (reading the full change feed), the October report returned 1,925 requests in about 0.12 s, and the 1 May–31 Oct report in about 0.33 s — against the 8-minute, 5 s and 10 s limits. While still syncing, `/health` is 200 and `/ready`, `/api/sla-report` and `/api/requests` all return 503.
 - Not independently load-tested against grader-scale data; these timings are from the practice dataset only.
+
+## Client requests
+
+- On 1 Nov the client asked for a CSV download for the finance team to pull the
+  monthly request list into Excel. Added `GET /api/requests.csv` returning the
+  full result set (no paging) with the same filters and sort as `/api/requests`,
+  plus a "Download CSV" button that reuses the current UI filters. The JSON and
+  CSV endpoints share one filter/sort implementation so they cannot drift.
 
 ## Trade-offs and what I would do next
 
