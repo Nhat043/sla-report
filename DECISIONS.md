@@ -23,7 +23,7 @@ Write in English. Short bullet points are fine. Reviewers read this file alongsi
 
 ## How I used AI
 
-- I used Codex as an implementation and review assistant: to scaffold small Node modules, propose tests, and check the documented API contract.
+- I used Claude Code (Opus) as an implementation and review assistant: to scaffold the Node modules, review correctness against the rules, refactor for readability, write and expand the test suite, add the CSV export requested by the client, and verify timings and readiness behaviour against the practice API.
 - I reviewed and edited all generated code, used the test suite to catch a syntax issue in a live-sync test, and kept the final design consistent with the provided rules.
 - No generated API data or secrets are included in the repository.
 
@@ -47,4 +47,4 @@ Write in English. Short bullet points are fine. Reviewers read this file alongsi
 - The UI is intentionally plain; the contract APIs and correctness of the SLA calculation were prioritized over visual polish.
 - The client retries network and server errors and follows `Retry-After` for rate limits. Initial data is cached and warmed; the change feed is polled every 15 seconds, comfortably inside the one-minute live-update requirement.
 - With more time I would add end-to-end contract tests against a mock Helpdesk server, metrics for sync lag/rate limits, snapshot expiry cleanup, structured logs, and a stronger DST test matrix.
-- Verification performed locally: `npm test` and `docker compose run --rm app test` pass all nine tests, covering health, SLA rules, report validation, initial sync, live-feed deduplication, and cursor pagination. `docker compose up --build` reached `/ready` successfully against the practice API. The October report returned 1,910 rows in about 235 ms; the May--October report returned 11,044 rows in about 556 ms. Browse pagination was checked across two pages with no duplicate IDs, and an inverted report date range returned `400`.
+- Verification: `npm test` and `docker compose run --rm app test` both pass all 19 tests, covering health, the SLA rules, report and query validation, filters, sorting, rule-1 exclusions, initial sync, live-feed deduplication, cursor pagination and CSV export. Browse pagination was checked across pages with no duplicate IDs, and an inverted date range returned `400`. Report timings are in the Level status section above.
