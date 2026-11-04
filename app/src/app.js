@@ -7,6 +7,8 @@ import { Store } from "./store.js";
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const VALID_SORTS = ["id", "-id", "response_business_minutes", "-response_business_minutes"];
+const ROW_FIELDS = ["id", "site_id", "responder_id", "responder", "response_business_minutes", "within_target", "completed_late"];
 
 // Parse and validate the shared from/to date range. Returns null if either
 // date is missing/malformed, or if from is after to.
@@ -41,6 +43,52 @@ function sortRows(rows, sort) {
   });
 }
 
+// Parse the filter/sort params shared by the browse and CSV endpoints.
+function listParams(query) {
+  return {
+    range: dateRange(query),
+    sort: query.sort || "id",
+    late: bool(query.late),
+    withinTarget: bool(query.within_target),
+  };
+}
+
+// Validate the shared filter/sort params. Returns true if the query is invalid.
+function listParamsInvalid(query, { range, sort, late, withinTarget }) {
+  return (
+    !range ||
+    !VALID_SORTS.includes(sort) ||
+    (query.late !== undefined && late === null) ||
+    (query.within_target !== undefined && withinTarget === null) ||
+    (query.site_id && !/^\d+$/.test(query.site_id)) ||
+    (query.responder_id && !/^\d+$/.test(query.responder_id))
+  );
+}
+
+// Compute the full filtered and sorted result set for a query (no paging).
+function filterSort(store, query, { range, sort, late, withinTarget }) {
+  const rows = store.report(range.from, range.to).filter(row =>
+    (!query.site_id || row.site_id === Number(query.site_id)) &&
+    (!query.responder_id || row.responder_id === Number(query.responder_id)) &&
+    (late === undefined || row.completed_late === late) &&
+    (withinTarget === undefined || row.within_target === withinTarget));
+  sortRows(rows, sort);
+  return rows;
+}
+
+// RFC 4180 CSV cell: empty for null/undefined; quote and escape when needed.
+function csvCell(value) {
+  if (value == null) return "";
+  const text = String(value);
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function toCsv(rows) {
+  const lines = [ROW_FIELDS.join(",")];
+  for (const row of rows) lines.push(ROW_FIELDS.map(field => csvCell(row[field])).join(","));
+  return lines.join("\r\n") + "\r\n";
+}
+
 export function createApp({ store = new Store(), ready = false } = {}) {
   const app = express();
   const isReady = () => ready || store.ready;
@@ -58,22 +106,11 @@ export function createApp({ store = new Store(), ready = false } = {}) {
   app.get("/api/requests", (req, res) => {
     if (!isReady()) return res.status(503).json({ error: "not ready" });
 
-    const range = dateRange(req.query);
+    const params = listParams(req.query);
     const limit = req.query.limit === undefined ? 50 : Number(req.query.limit);
-    const sort = req.query.sort || "id";
-    const late = bool(req.query.late);
-    const withinTarget = bool(req.query.within_target);
-
-    const validSorts = ["id", "-id", "response_business_minutes", "-response_business_minutes"];
-    const invalid =
-      !range ||
-      !Number.isInteger(limit) || limit < 1 || limit > 200 ||
-      !validSorts.includes(sort) ||
-      (req.query.late !== undefined && late === null) ||
-      (req.query.within_target !== undefined && withinTarget === null) ||
-      (req.query.site_id && !/^\d+$/.test(req.query.site_id)) ||
-      (req.query.responder_id && !/^\d+$/.test(req.query.responder_id));
-    if (invalid) return res.status(400).json({ error: "invalid query" });
+    if (listParamsInvalid(req.query, params) || !Number.isInteger(limit) || limit < 1 || limit > 200) {
+      return res.status(400).json({ error: "invalid query" });
+    }
 
     let rows;
     let offset = 0;
@@ -87,13 +124,7 @@ export function createApp({ store = new Store(), ready = false } = {}) {
       rows = snapshot.rows;
       offset = snapshot.offset;
     } else {
-      // First page: compute, filter and sort the full result set.
-      rows = store.report(range.from, range.to).filter(row =>
-        (!req.query.site_id || row.site_id === Number(req.query.site_id)) &&
-        (!req.query.responder_id || row.responder_id === Number(req.query.responder_id)) &&
-        (late === undefined || row.completed_late === late) &&
-        (withinTarget === undefined || row.within_target === withinTarget));
-      sortRows(rows, sort);
+      rows = filterSort(store, req.query, params);
     }
 
     const data = rows.slice(offset, offset + limit);
@@ -104,6 +135,20 @@ export function createApp({ store = new Store(), ready = false } = {}) {
       store.snapshots.set(next_cursor, { rows, offset: nextOffset, expires: Date.now() + 10 * 60_000 });
     }
     res.json({ data, next_cursor });
+  });
+
+  // CSV download for finance: the same filters and sort as the browse view,
+  // but the whole result set (no paging) as a spreadsheet-friendly file.
+  app.get("/api/requests.csv", (req, res) => {
+    if (!isReady()) return res.status(503).json({ error: "not ready" });
+
+    const params = listParams(req.query);
+    if (listParamsInvalid(req.query, params)) return res.status(400).json({ error: "invalid query" });
+
+    const rows = filterSort(store, req.query, params);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="requests_${params.range.from}_${params.range.to}.csv"`);
+    res.send(toCsv(rows));
   });
 
   app.get("/api/sla-report", (req, res) => {

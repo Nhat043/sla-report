@@ -26,6 +26,7 @@
     <label>Within target <select name="within_target"><option value="">Any</option><option value="true">True</option><option value="false">False</option></select></label>
     <label>Sort <select name="sort"><option value="id">ID</option><option value="-id">ID descending</option><option value="response_business_minutes">Response minutes</option><option value="-response_business_minutes">Response minutes descending</option></select></label>
     <button type="submit">Run report</button>
+    <button type="button" id="csv">Download CSV</button>
   </form>
 
   <p id="status" class="muted"></p>
@@ -42,8 +43,16 @@
     const requestBody = document.querySelector("#requests tbody");
     const count = document.querySelector("#count");
     const next = document.querySelector("#next");
+    const csv = document.querySelector("#csv");
     let cursor = null;
     let params = null;
+
+    // Build a query string from the current form values (omitting empty ones).
+    function currentParams() {
+      const query = new URLSearchParams();
+      for (const [name, value] of new FormData(form)) if (value !== "") query.set(name, value);
+      return query;
+    }
 
     const show = value => value == null ? "-" : String(value);
     function cell(row, value) { const td = document.createElement("td"); td.textContent = show(value); row.append(td); }
@@ -78,8 +87,7 @@
     form.addEventListener("submit", async event => {
       event.preventDefault();
       const values = new FormData(form);
-      params = new URLSearchParams();
-      for (const [name, value] of values) if (value !== "") params.set(name, value);
+      params = currentParams();
       cursor = null;
       setStatus("Loading...");
       try {
@@ -99,6 +107,13 @@
     });
     next.addEventListener("click", async () => {
       try { await loadPage(true); } catch (error) { setStatus(error.message || String(error), true); }
+    });
+    // CSV uses the current filters; from/to are required, same as the report.
+    csv.addEventListener("click", () => {
+      const query = currentParams();
+      if (!query.get("from") || !query.get("to")) { setStatus("Pick a From and To date first.", true); return; }
+      query.delete("limit");
+      window.location = "/api/requests.csv?" + query;
     });
   </script>
 </body>
