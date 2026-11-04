@@ -27,6 +27,7 @@ export function createApp({ store = new Store(), ready = false } = {}) {
   });
 
   app.get("/api/requests", (req, res) => {
+    if (!(ready || store.ready)) return res.status(503).json({ error: "not ready" });
     const range = dateRange(req.query); const limit = req.query.limit === undefined ? 50 : Number(req.query.limit); const sort = req.query.sort || "id";
     const late = bool(req.query.late); const withinTarget = bool(req.query.within_target);
     if (!range || !Number.isInteger(limit) || limit < 1 || limit > 200 || !["id", "-id", "response_business_minutes", "-response_business_minutes"].includes(sort) || (req.query.late !== undefined && late === null) || (req.query.within_target !== undefined && withinTarget === null) || (req.query.site_id && !/^\d+$/.test(req.query.site_id)) || (req.query.responder_id && !/^\d+$/.test(req.query.responder_id))) return res.status(400).json({ error: "invalid query" });
@@ -45,6 +46,7 @@ export function createApp({ store = new Store(), ready = false } = {}) {
   });
 
   app.get("/api/sla-report", (req, res) => {
+    if (!(ready || store.ready)) return res.status(503).json({ error: "not ready" });
     const range = dateRange(req.query); if (!range) return res.status(400).json({ error: "invalid date range" });
     const requests = store.report(range.from, range.to); const groups = new Map();
     for (const row of requests) if (row.responder_id != null) { const group = groups.get(row.responder_id) || { id: row.responder_id, name: row.responder, requests: 0, within_target: 0, completed_late: 0 }; group.requests += 1; if (row.within_target) group.within_target += 1; if (row.completed_late) group.completed_late += 1; groups.set(row.responder_id, group); }

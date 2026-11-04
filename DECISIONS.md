@@ -30,7 +30,8 @@ Write in English. Short bullet points are fine. Reviewers read this file alongsi
 ## Level status
 
 - All four levels (report, fast, live, browse) are implemented and pass the local test suite (9 tests).
-- Not independently load-tested against grader-scale data; `/ready` cold-start and report timings were measured only on the practice API.
+- Measured on the practice API via `docker compose up --build`: `/ready` reached 200 in about 54 s (reading the full change feed), the October report returned 1,925 requests in about 0.12 s, and the 1 May–31 Oct report in about 0.33 s — against the 8-minute, 5 s and 10 s limits. While still syncing, `/health` is 200 and `/ready`, `/api/sla-report` and `/api/requests` all return 503.
+- Not independently load-tested against grader-scale data; these timings are from the practice dataset only.
 
 ## Trade-offs and what I would do next
 
